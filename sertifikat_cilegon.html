@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISTADIG Kota Cilegon - Sistem Informasi Tanah Digital</title>
+    
+    <!-- CSS Dependencies -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    
+    <!-- JS Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        :root { 
+            --cilegon-green: #1a5c41; 
+            --cilegon-gold: #d4a017; 
+            --cilegon-dark: #0f3626;
+            --cilegon-light: #e8f5e9;
+        }
+        
+        body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; padding-bottom: 40px;}
+        
+        /* Running Text */
+        .running-text-container {
+            background: var(--cilegon-dark);
+            color: var(--cilegon-gold);
+            padding: 5px 0;
+            font-weight: 600;
+            font-size: 12px;
+            letter-spacing: 1px;
+            border-bottom: 2px solid var(--cilegon-gold);
+        }
+
+        /* Login Page Style */
+        #loginOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(0,0,0,0.7), rgba(26, 92, 65, 0.8)), url('https://images.unsplash.com/photo-1506146332389-18140dc7b2fb?q=80&w=2070&auto=format&fit=crop') center/cover no-repeat;
+            display: flex; align-items: center; justify-content: center; z-index: 9999;
+        }
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2.5rem; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+            width: 100%; max-width: 420px; backdrop-filter: blur(10px);
+            border: 2px solid var(--cilegon-gold);
+        }
+        
+        /* Dashboard Styles */
+        .navbar { background: var(--cilegon-green); }
+        .navbar-brand img { height: 50px; margin-right: 15px; filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.3)); }
+        .nav-title { line-height: 1.2; }
+        .nav-main-title { font-size: 1.2rem; font-weight: 800; letter-spacing: 1px; color: #fff;}
+        .nav-sub-title { font-size: 0.8rem; font-weight: normal; color: #e0e0e0; }
+
+        /* Summary Cards */
+        .summary-card {
+            border-radius: 15px; border: none; overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: 0.3s;
+        }
+        .summary-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+        .summary-icon { font-size: 2.5rem; opacity: 0.2; position: absolute; right: 20px; bottom: 10px; }
+
+        #map { height: 350px; border-radius: 15px; border: 3px solid #fff; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .card { border: none; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        
+        .table-container { max-height: 500px; overflow-y: auto; overflow-x: auto; background: white; border-radius: 10px; }
+        .table-custom { min-width: 1800px; font-size: 11px; }
+        .table-custom th { background-color: var(--cilegon-green); color: white; vertical-align: middle; white-space: nowrap;}
+        .table-custom td { vertical-align: middle; }
+        
+        .scan-container { 
+            height: 400px; border: 2px dashed #ccc; border-radius: 15px; 
+            background: #fafafa; display: flex; align-items: center; justify-content: center; 
+            overflow: hidden; position: relative; transition: 0.3s;
+        }
+        .scan-container img { max-width: 100%; max-height: 100%; object-fit: contain; }
+        
+        .form-label { font-weight: 700; font-size: 10px; margin-bottom: 2px; color: var(--cilegon-dark); text-transform: uppercase; }
+        .btn-cilegon { background: var(--cilegon-green); color: white; border-radius: 8px; font-weight: 600;}
+        .btn-cilegon:hover { background: var(--cilegon-dark); color: white; }
+        .btn-gold { background: var(--cilegon-gold); color: #000; border-radius: 8px; font-weight: 600;}
+        .btn-gold:hover { background: #b8860b; color: #fff; }
+        
+        tr.selected { background-color: var(--cilegon-light) !important; border-left: 4px solid var(--cilegon-green); }
+        .badge-sertif { font-size: 9px; padding: 5px 10px; border-radius: 20px; }
+        
+        .custom-popup .leaflet-popup-content-wrapper { border-radius: 10px; }
+        .custom-popup .leaflet-popup-content { margin: 12px; font-size: 12px; }
+
+        .filter-box { background-color: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); border: 1px solid #eee; }
+
+        /* Footer Clock */
+        .footer-clock {
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: var(--cilegon-dark); color: white;
+            padding: 8px 20px; font-size: 12px; font-weight: 600;
+            display: flex; justify-content: space-between; z-index: 1000;
+            border-top: 2px solid var(--cilegon-gold);
+        }
+    </style>
+</head>
+<body>
+
+<!-- LOGIN OVERLAY -->
+<div id="loginOverlay">
+    <div class="login-card text-center">
+        <!-- Menggunakan logo stabil dari server Banten/Kemendagri/Wikipedia alternatif -->
+        <img src="https://upload.wikimedia.org/wikipedia/commons/d/de/Lambang_Kota_Cilegon.png" alt="Logo Pemkot Cilegon" style="height: 90px;" class="mb-3">
+        <h3 class="fw-bold mb-1" style="color: var(--cilegon-green);">SISTADIG KOTA CILEGON</h3>
+        <p class="text-muted small mb-4 fw-bold">Sistem Informasi Tanah Digital<br>Pemerintah Kota Cilegon</p>
+        
+        <div class="text-start mb-3">
+            <label class="form-label">Username</label>
+            <input type="text" id="userLogin" class="form-control" placeholder="Masukkan username">
+        </div>
+        <div class="text-start mb-4">
+            <label class="form-label">Password</label>
+            <input type="password" id="passLogin" class="form-control" placeholder="********">
+        </div>
+        <button onclick="handleLogin()" class="btn btn-cilegon w-100 py-2 shadow-sm mb-3">MASUK KE SISTEM</button>
+        
+        <div class="mt-4 pt-3 border-top">
+            <p class="text-muted fw-bold m-0" style="font-size: 11px; color: var(--cilegon-green) !important;">Bidang Aset Daerah BPKPAD Kota Cilegon</p>
+        </div>
+    </div>
+</div>
+
+<!-- MAIN DASHBOARD -->
+<div id="mainContent" style="display:none;">
+    
+    <!-- Running Text -->
+    <div class="running-text-container">
+        <marquee behavior="scroll" direction="left" scrollamount="5">
+            <i class="fas fa-bullhorn me-2"></i> SELAMAT MENGGUNAKAN APLIKASI - TERTIB ADMINISTRASI BARANG MILIK DAERAH PEMERINTAH KOTA CILEGON
+        </marquee>
+    </div>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-dark p-2 shadow">
+        <div class="container-fluid">
+            <div class="navbar-brand fw-bold d-flex align-items-center">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/d/de/Lambang_Kota_Cilegon.png" alt="Logo Cilegon">
+                <div class="nav-title">
+                    <div class="nav-main-title">SISTADIG KOTA CILEGON</div>
+                    <div class="nav-sub-title">Sistem Informasi Tanah Digital Pemerintah Kota Cilegon</div>
+                </div>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+                <span class="text-white me-3 small fw-bold" id="userDisplay"></span>
+                <button class="btn btn-outline-light btn-sm" onclick="downloadTemplate()"><i class="fas fa-file-excel"></i> Template</button>
+                <label class="btn btn-light btn-sm mb-0 p-1 px-2" id="btnImport">
+                    <i class="fas fa-file-import"></i> Import <input type="file" id="importExcel" hidden accept=".xlsx, .xls" onchange="handleImport(this)">
+                </label>
+                <button class="btn btn-gold btn-sm" onclick="exportKeExcel()"><i class="fas fa-file-export"></i> Export</button>
+                <button class="btn btn-primary btn-sm" id="btnKelolaUser" onclick="bukaModalUser()" style="display:none;"><i class="fas fa-users-cog"></i> Akun</button>
+                <button class="btn btn-danger btn-sm" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> Keluar</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-3">
+        <!-- Summary Cards -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-6">
+                <div class="summary-card card bg-white border-start border-5 border-success p-3 position-relative">
+                    <div class="text-muted fw-bold small text-uppercase">Total Bidang Tanah</div>
+                    <h3 class="fw-bold text-success mb-0" id="totAset">0 <span class="fs-6 text-muted">Bidang</span></h3>
+                    <i class="fas fa-map-marked-alt summary-icon text-success"></i>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="summary-card card bg-white border-start border-5 border-warning p-3 position-relative">
+                    <div class="text-muted fw-bold small text-uppercase">Total Nilai Perolehan</div>
+                    <h3 class="fw-bold text-warning mb-0" id="totNilai">Rp 0</h3>
+                    <i class="fas fa-coins summary-icon text-warning"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <!-- FORM INPUT ASET -->
+            <div class="col-lg-3" id="panelForm">
+                <div class="card p-3 shadow-sm border-0">
+                    <h6 class="fw-bold text-success border-bottom pb-2 mb-3" id="formTitle">
+                        <i class="fas fa-plus-circle me-2"></i>INPUT DATA ASET
+                    </h6>
+                    <input type="hidden" id="editIndex" value="-1">
+                    
+                    <div class="row g-1 mb-2">
+                        <div class="col-5">
+                            <label class="form-label">No. Register</label>
+                            <input type="text" id="inpRegister" class="form-control form-control-sm" placeholder="Contoh: 0001">
+                        </div>
+                        <div class="col-7">
+                            <label class="form-label">OPD / Pengguna</label>
+                            <input type="text" id="inpOpd" class="form-control form-control-sm" placeholder="Contoh: Dinas Kesehatan">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <label class="form-label">Nama Umum Barang</label>
+                        <input type="text" id="inpNamaUmum" class="form-control form-control-sm" placeholder="Tanah Bangunan Gedung">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Nama Barang Spesifik</label>
+                        <input type="text" id="inpNama" class="form-control form-control-sm" placeholder="Puskesmas Cibeber">
+                    </div>
+                    <div class="row g-1 mb-2">
+                        <div class="col-6">
+                            <label class="form-label">Status Sertifikat</label>
+                            <select id="inpStatusSer" class="form-select form-select-sm" onchange="toggleSertifikat()">
+                                <option value="sudah">Bersertifikat</option>
+                                <option value="belum">Belum</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Tgl Sertifikat</label>
+                            <input type="date" id="inpTglSer" class="form-control form-control-sm">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">No. Sertifikat</label>
+                        <input type="text" id="inpNo" class="form-control form-control-sm">
+                    </div>
+                    <div class="row g-1 mb-2">
+                        <div class="col-6">
+                            <label class="form-label">Kecamatan</label>
+                            <select id="inpKec" class="form-select form-select-sm" onchange="updateKelurahan()"></select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Kelurahan</label>
+                            <select id="inpKel" class="form-select form-select-sm"></select>
+                        </div>
+                    </div>
+                    <div class="row g-1 mb-2">
+                        <div class="col-6">
+                            <label class="form-label">Luas (m²)</label>
+                            <input type="text" id="inpLuas" class="form-control form-control-sm" onkeyup="formatAngka(this)">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Tahun Perolehan</label>
+                            <input type="number" id="inpTahun" class="form-control form-control-sm" placeholder="2024">
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Harga Perolehan (Rp)</label>
+                        <input type="text" id="inpHarga" class="form-control form-control-sm" onkeyup="formatAngka(this)">
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Titik Koordinat (Lat, Lng)</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" id="inpKoordinat" class="form-control" placeholder="-6.01, 106.04">
+                            <button class="btn btn-outline-secondary" onclick="ambilDariPeta()"><i class="fas fa-map-marker-alt"></i></button>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="boxUpload">
+                        <label class="form-label">Update Scan Dokumen</label>
+                        <input type="file" id="inpFile" class="form-control form-control-sm" accept="image/*" onchange="previewScan(this)">
+                    </div>
+                    
+                    <div class="d-grid gap-2" id="panelTombolForm">
+                        <button onclick="simpanData()" class="btn btn-cilegon btn-sm shadow-sm"><i class="fas fa-save me-1"></i> SIMPAN DATA</button>
+                        <button onclick="resetForm()" class="btn btn-light btn-sm border"><i class="fas fa-undo me-1"></i> BATAL</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAIN DATA TABLE & MAP -->
+            <div class="col-lg-6" id="panelTabel">
+                <div class="card p-2 mb-3"><div id="map"></div></div>
+                <div class="card p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold m-0" style="color: var(--cilegon-dark);"><i class="fas fa-table me-2"></i>DATA TANAH (KIB A)</h6>
+                    </div>
+                    
+                    <!-- AREA FILTER DATA -->
+                    <div class="filter-box mb-3">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label">Filter OPD</label>
+                                <select id="filterOpd" class="form-select form-select-sm" onchange="applyFilters()">
+                                    <option value="">Semua OPD</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Per Tahun</label>
+                                <input type="number" id="filterTahun" class="form-control form-control-sm" placeholder="Thn" onkeyup="applyFilters()" onchange="applyFilters()">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Sampai Tahun</label>
+                                <input type="number" id="filterSampaiTahun" class="form-control form-control-sm" placeholder="Thn" onkeyup="applyFilters()" onchange="applyFilters()">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Pencarian Bebas</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light"><i class="fas fa-search"></i></span>
+                                    <input type="text" id="cariData" class="form-control" placeholder="Cari data..." onkeyup="applyFilters()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TABEL DATA LENGKAP -->
+                    <div class="table-responsive table-container border shadow-sm">
+                        <table class="table table-hover table-sm table-custom align-middle mb-0" id="dataTable">
+                            <thead class="text-center sticky-top shadow-sm">
+                                <tr>
+                                    <th width="40">No</th>
+                                    <th>Register</th>
+                                    <th>OPD/Pengguna</th>
+                                    <th>Nama Umum</th>
+                                    <th>Nama Spesifik</th>
+                                    <th>Status</th>
+                                    <th>Tgl Sertifikat</th>
+                                    <th>No. Sertifikat</th>
+                                    <th>Kecamatan</th>
+                                    <th>Kelurahan</th>
+                                    <th>Luas (m²)</th>
+                                    <th>Tahun</th>
+                                    <th>Harga (Rp)</th>
+                                    <th>Koordinat</th>
+                                    <th width="80" class="col-aksi">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="isiTabel"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCAN VIEWER -->
+            <div class="col-lg-3">
+                <div class="sticky-top" style="top: 20px;">
+                    <div class="card p-2 mb-3">
+                        <h6 class="fw-bold text-center mt-2 mb-2 small text-uppercase" style="color:var(--cilegon-dark);">Pratinjau Dokumen</h6>
+                        <div class="scan-container shadow-sm mb-2" id="scanViewer">
+                            <div class="text-center p-4">
+                                <i class="fas fa-file-image fa-3x text-secondary mb-2 opacity-50"></i>
+                                <p class="text-muted mb-0 small">Dokumen tidak tersedia</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card p-3 border-success shadow-sm" style="background-color: var(--cilegon-light);">
+                        <h6 class="fw-bold text-success mb-2 small border-bottom border-success pb-2"><i class="fas fa-info-circle me-1"></i>DETAIL INFORMASI</h6>
+                        <div id="infoTerpilih" class="small text-dark" style="line-height: 1.6;">Silakan klik baris tabel untuk melihat detail.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Kelola User -->
+<div class="modal fade" id="modalUser" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-users-cog me-2"></i>Manajemen Akun Pengguna</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body bg-light">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="card p-3 shadow-sm">
+                            <h6 class="fw-bold mb-3 border-bottom pb-2">Form Akun</h6>
+                            <input type="hidden" id="userIdx" value="-1">
+                            <div class="mb-2">
+                                <label class="form-label">Username</label>
+                                <input type="text" id="uName" class="form-control form-control-sm">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password</label>
+                                <input type="text" id="uPass" class="form-control form-control-sm">
+                            </div>
+                            <label class="form-label">Hak Akses</label>
+                            <div class="border p-2 rounded mb-3 bg-white">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkLihat" checked disabled>
+                                    <label class="form-check-label small">Lihat Data (Default)</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkTambah">
+                                    <label class="form-check-label small">Tambah Data</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkEdit">
+                                    <label class="form-check-label small">Edit Data</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="chkHapus">
+                                    <label class="form-check-label small">Hapus Data</label>
+                                </div>
+                            </div>
+                            <button class="btn btn-success btn-sm w-100 mb-2" onclick="simpanUser()">Simpan Akun</button>
+                            <button class="btn btn-outline-secondary btn-sm w-100" onclick="resetFormUser()">Batal</button>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="card p-3 shadow-sm h-100">
+                            <table class="table table-sm table-bordered table-hover text-center align-middle" style="font-size:11px;">
+                                <thead class="table-success">
+                                    <tr>
+                                        <th>Username</th><th>Password</th><th>Hak Akses</th><th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tabelUsers"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Footer Live Clock -->
+<div class="footer-clock">
+    <div>SISTADIG KOTA CILEGON &copy; Bidang Aset Daerah BPKPAD Kota Cilegon</div>
+    <div id="liveClock"><i class="far fa-clock me-1"></i> Memuat waktu...</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+<script>
+    // DATA WILAYAH CILEGON
+    const wilayahCilegon = {
+        "Cibeber": ["Cibeber", "Cikerai", "Kalitimbang", "Karangasem", "Kedaleman", "Bulakan"],
+        "Cilegon": ["Bendungan", "Ciwedus", "Ciwaduk", "Ketileng", "Bagendung"],
+        "Citangkil": ["Citangkil", "Deringo", "Kebonsari", "Lebak Denok", "Samangraya", "Warnasari", "Taman Baru"],
+        "Ciwandan": ["Banonji", "Gunung Sugih", "Kepuh", "Kubangsari", "Randakari", "Tegal Ratu"],
+        "Grogol": ["Grogol", "Gerem", "Kotak Bumi", "Rawa Arum"],
+        "Jombang": ["Jombang Wetan", "Gedong Dalem", "Panggung Rawi", "Sukmajaya", "Masigit"],
+        "Pulomerak": ["Lebak Gede", "Mekarsari", "Suralaya", "Tamansari"],
+        "Purwakarta": ["Purwakarta", "Kebondalem", "Kotabumi", "Pabean", "Ramanuju", "Tegal Bunder"]
+    };
+
+    // SYSTEM INIT
+    let dbAset = JSON.parse(localStorage.getItem('db_sistadig_v8_aset')) || [];
+    let dbUsers = JSON.parse(localStorage.getItem('db_sistadig_v8_users'));
+    let currentUser = null;
+    let markers = [];
+    let currentScanData = null;
+    let tempMarker = null;
+
+    // Default Admin setup if no users exist
+    if (!dbUsers || dbUsers.length === 0) {
+        dbUsers = [{ username: 'admin', password: 'admin123', perms: { tambah: true, edit: true, hapus: true, lihat: true } }];
+        localStorage.setItem('db_sistadig_v8_users', JSON.stringify(dbUsers));
+    }
+
+    // MAP INIT
+    var map = L.map('map').setView([-6.015, 106.025], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; BPKPAD Cilegon' }).addTo(map);
+    L.Control.geocoder().addTo(map);
+
+    // LIVE CLOCK
+    setInterval(() => {
+        const now = new Date();
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second:'2-digit' };
+        document.getElementById('liveClock').innerHTML = `<i class="far fa-clock me-1"></i> ${now.toLocaleDateString('id-ID', options)}`;
+    }, 1000);
+
+    // INIT DROPDOWN KECAMATAN
+    const selKec = document.getElementById('inpKec');
+    selKec.innerHTML = '<option value="">Pilih Kecamatan</option>';
+    Object.keys(wilayahCilegon).forEach(k => selKec.innerHTML += `<option value="${k}">${k}</option>`);
+
+    // CHECK SESSION ON LOAD
+    document.addEventListener("DOMContentLoaded", () => {
+        const sessionUser = sessionStorage.getItem("sistadig_user");
+        if(sessionUser) {
+            currentUser = JSON.parse(sessionUser);
+            masukKeSistem(false); // false = tanpa alert
+        }
+    });
+
+    // LOGIN & AUTH
+    function handleLogin() {
+        const u = document.getElementById('userLogin').value.trim();
+        const p = document.getElementById('passLogin').value;
+        
+        const userFound = dbUsers.find(x => x.username === u && x.password === p);
+
+        if(userFound) {
+            currentUser = userFound;
+            sessionStorage.setItem("sistadig_user", JSON.stringify(currentUser));
+            masukKeSistem(true);
+        } else {
+            Swal.fire({ icon: 'error', title: 'Akses Ditolak', text: 'Username atau Password salah!' });
+        }
+    }
+
+    function masukKeSistem(showAlert = true) {
+        document.getElementById('loginOverlay').style.display = 'none';
+        document.getElementById('mainContent').style.display = 'block';
+        document.getElementById('userDisplay').innerHTML = `<i class="fas fa-user-circle me-1"></i> Hai, ${currentUser.username}`;
+        
+        terapkanHakAkses();
+        
+        setTimeout(() => map.invalidateSize(), 500);
+        updateApp();
+
+        if(showAlert) {
+            Swal.fire({
+                icon: 'success', title: 'Login Berhasil', 
+                text: `Selamat datang, ${currentUser.username}!`, 
+                timer: 1500, showConfirmButton: false
+            });
+        }
+    }
+
+    function handleLogout() {
+        Swal.fire({
+            title: 'Keluar Sistem?', text: "Sesi Anda akan diakhiri.", icon: 'warning',
+            showCancelButton: true, confirmButtonColor: '#1a5c41', cancelButtonColor: '#d33',
+            confirmButtonText: 'Ya, Keluar!', cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                sessionStorage.removeItem("sistadig_user");
+                location.reload();
+            }
+        });
+    }
+
+    // RBAC LOGIC (HAK AKSES)
+    function terapkanHakAkses() {
+        const p = currentUser.perms;
+        
+        // Admin Access
+        if(currentUser.username === 'admin') {
+            document.getElementById('btnKelolaUser').style.display = 'inline-block';
+        } else {
+            document.getElementById('btnKelolaUser').style.display = 'none';
+        }
+
+        // Akses Tambah (Menampilkan Form)
+        if(p.tambah || p.edit) {
+            document.getElementById('panelForm').style.display = 'block';
+            document.getElementById('panelTabel').classList.replace('col-lg-9', 'col-lg-6');
+        } else {
+            document.getElementById('panelForm').style.display = 'none';
+            document.getElementById('panelTabel').classList.replace('col-lg-6', 'col-lg-9'); // Perlebar tabel jika form hilang
+        }
+
+        // Akses Tambah tombol import
+        document.getElementById('btnImport').style.display = p.tambah ? 'inline-block' : 'none';
+        
+        // Akses Aksi Tabel diatur di dalam render tabel (updateApp)
+    }
+
+    // USER MANAGEMENT
+    function bukaModalUser() {
+        renderTabelUser();
+        resetFormUser();
+        new bootstrap.Modal(document.getElementById('modalUser')).show();
+    }
+
+    function renderTabelUser() {
+        const tbody = document.getElementById('tabelUsers');
+        tbody.innerHTML = '';
+        dbUsers.forEach((u, i) => {
+            let badge = [];
+            if(u.perms.tambah) badge.push('<span class="badge bg-primary">Tambah</span>');
+            if(u.perms.edit) badge.push('<span class="badge bg-warning text-dark">Edit</span>');
+            if(u.perms.hapus) badge.push('<span class="badge bg-danger">Hapus</span>');
+            if(badge.length === 0) badge.push('<span class="badge bg-secondary">Lihat Saja</span>');
+
+            tbody.innerHTML += `
+                <tr>
+                    <td class="fw-bold">${u.username}</td>
+                    <td>${u.password}</td>
+                    <td>${badge.join(' ')}</td>
+                    <td>
+                        ${u.username === 'admin' ? '<span class="badge bg-dark">Super Admin</span>' : `
+                        <button class="btn btn-sm btn-warning py-0 px-1" onclick="editUser(${i})"><i class="fas fa-edit"></i></button>
+                        <button class="btn btn-sm btn-danger py-0 px-1" onclick="hapusUser(${i})"><i class="fas fa-trash"></i></button>
+                        `}
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    function simpanUser() {
+        const idx = parseInt(document.getElementById('userIdx').value);
+        const uname = document.getElementById('uName').value.trim();
+        const upass = document.getElementById('uPass').value.trim();
+        
+        if(!uname || !upass) return Swal.fire('Error', 'Username dan password wajib diisi!', 'error');
+        if(uname === 'admin' && idx !== 0) return Swal.fire('Error', 'Username admin tidak boleh digunakan!', 'error');
+
+        const userData = {
+            username: uname, password: upass,
+            perms: {
+                lihat: true,
+                tambah: document.getElementById('chkTambah').checked,
+                edit: document.getElementById('chkEdit').checked,
+                hapus: document.getElementById('chkHapus').checked
+            }
+        };
+
+        if(idx === -1) {
+            if(dbUsers.find(x => x.username === uname)) return Swal.fire('Error', 'Username sudah ada!', 'error');
+            dbUsers.push(userData);
+        } else {
+            dbUsers[idx] = userData;
+        }
+
+        localStorage.setItem('db_sistadig_v8_users', JSON.stringify(dbUsers));
+        renderTabelUser();
+        resetFormUser();
+        Swal.fire('Tersimpan', 'Data user berhasil disimpan.', 'success');
+    }
+
+    function editUser(i) {
+        const u = dbUsers[i];
+        document.getElementById('userIdx').value = i;
+        document.getElementById('uName').value = u.username;
+        document.getElementById('uPass').value = u.password;
+        document.getElementById('chkTambah').checked = u.perms.tambah;
+        document.getElementById('chkEdit').checked = u.perms.edit;
+        document.getElementById('chkHapus').checked = u.perms.hapus;
+    }
+
+    function hapusUser(i) {
+        if(dbUsers[i].username === 'admin') return;
+        Swal.fire({
+            title: 'Hapus User?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Ya', cancelButtonText: 'Batal'
+        }).then((res) => {
+            if(res.isConfirmed) {
+                dbUsers.splice(i, 1);
+                localStorage.setItem('db_sistadig_v8_users', JSON.stringify(dbUsers));
+                renderTabelUser();
+            }
+        });
+    }
+
+    function resetFormUser() {
+        document.getElementById('userIdx').value = -1;
+        document.getElementById('uName').value = '';
+        document.getElementById('uPass').value = '';
+        document.getElementById('chkTambah').checked = false;
+        document.getElementById('chkEdit').checked = false;
+        document.getElementById('chkHapus').checked = false;
+    }
+
+    // FORM HELPER
+    function formatAngka(input) {
+        let val = input.value.replace(/[^0-9]/g, "");
+        if (val) input.value = parseInt(val).toLocaleString('id-ID');
+    }
+
+    function toggleSertifikat() {
+        const s = document.getElementById('inpStatusSer').value;
+        const inpNo = document.getElementById('inpNo');
+        const inpTgl = document.getElementById('inpTglSer');
+        if(s === "belum") {
+            inpNo.value = "Belum Terdaftar";
+            inpNo.disabled = true; inpTgl.disabled = true;
+        } else {
+            if(inpNo.value === "Belum Terdaftar") inpNo.value = "";
+            inpNo.disabled = false; inpTgl.disabled = false;
+        }
+    }
+
+    function updateKelurahan() {
+        const k = document.getElementById('inpKec').value;
+        const s = document.getElementById('inpKel');
+        s.innerHTML = '<option value="">Pilih Kelurahan</option>';
+        if(k && wilayahCilegon[k]) wilayahCilegon[k].forEach(x => s.innerHTML += `<option value="${x}">${x}</option>`);
+    }
+
+    // MAP LOGIC
+    map.on('click', function(e) {
+        if(!currentUser.perms.tambah && !currentUser.perms.edit) return; // Kunci peta jika tidak punya akses form
+        if (tempMarker) map.removeLayer(tempMarker);
+        tempMarker = L.marker(e.latlng, {icon: L.divIcon({className: 'fas fa-crosshairs text-danger fa-2x'})}).addTo(map);
+        document.getElementById('inpKoordinat').value = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+    });
+
+    function ambilDariPeta() {
+        Swal.fire({ icon: 'info', title: 'Ambil Titik', text: 'Silakan klik pada peta untuk mengambil koordinat.', timer: 2500, showConfirmButton: false });
+    }
+
+    function parseKoordinat(str) {
+        if(!str) return null;
+        const c = str.split(/[\s,]+/);
+        if(c.length >= 2) {
+            const lat = parseFloat(c[0]); const lng = parseFloat(c[1]);
+            if(!isNaN(lat) && !isNaN(lng)) return { lat, lng };
+        }
+        return null;
+    }
+
+    function previewScan(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = e => { currentScanData = e.target.result; renderScanViewer(currentScanData); };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function renderScanViewer(dataUri) {
+        const viewer = document.getElementById('scanViewer');
+        if(!dataUri) {
+            viewer.innerHTML = '<div class="text-center p-4"><i class="fas fa-file-image fa-3x text-secondary mb-2 opacity-50"></i><p class="text-muted mb-0 small">Dokumen tidak tersedia</p></div>';
+            return;
+        }
+        viewer.innerHTML = `<img src="${dataUri}"><div style="position:absolute; bottom:10px; right:10px;"><a href="${dataUri}" download="Sertifikat.png" class="btn btn-success btn-sm"><i class="fas fa-download"></i> Unduh</a></div>`;
+    }
+
+    // CRUD LOGIC ASET
+    function simpanData() {
+        if(!currentUser.perms.tambah && !currentUser.perms.edit) return Swal.fire('Akses Ditolak', 'Anda tidak memiliki hak akses menyimpan data.', 'error');
+
+        const idx = parseInt(document.getElementById('editIndex').value);
+        if(idx === -1 && !currentUser.perms.tambah) return Swal.fire('Akses Ditolak', 'Anda tidak memiliki hak akses menambah data.', 'error');
+        if(idx !== -1 && !currentUser.perms.edit) return Swal.fire('Akses Ditolak', 'Anda tidak memiliki hak akses mengedit data.', 'error');
+
+        const coordRaw = document.getElementById('inpKoordinat').value;
+        const k = parseKoordinat(coordRaw);
+        
+        let finalScan = currentScanData;
+        if (idx !== -1 && !currentScanData) finalScan = dbAset[idx].scan;
+
+        const data = {
+            register: document.getElementById('inpRegister').value || "-",
+            opd: document.getElementById('inpOpd').value,
+            namaUmum: document.getElementById('inpNamaUmum').value,
+            nama: document.getElementById('inpNama').value,
+            status: document.getElementById('inpStatusSer').value,
+            tglSer: document.getElementById('inpTglSer').value,
+            no: document.getElementById('inpNo').value,
+            kec: document.getElementById('inpKec').value,
+            kel: document.getElementById('inpKel').value,
+            luas: document.getElementById('inpLuas').value,
+            tahun: document.getElementById('inpTahun').value,
+            harga: document.getElementById('inpHarga').value,
+            koordinat: coordRaw,
+            lat: k ? k.lat : null, lng: k ? k.lng : null, scan: finalScan
+        };
+
+        if(!data.nama || !data.luas) return Swal.fire('Data Tidak Lengkap', 'Nama Barang dan Luas wajib diisi!', 'warning');
+
+        Swal.fire({
+            title: idx === -1 ? 'Simpan Data Baru?' : 'Simpan Perubahan?',
+            icon: 'question', showCancelButton: true, confirmButtonColor: '#1a5c41',
+            confirmButtonText: 'Ya, Simpan!', cancelButtonText: 'Batal'
+        }).then((res) => {
+            if (res.isConfirmed) {
+                if(idx === -1) dbAset.push(data);
+                else dbAset[idx] = data;
+
+                localStorage.setItem('db_sistadig_v8_aset', JSON.stringify(dbAset));
+                resetForm();
+                updateApp(); 
+                if (tempMarker) map.removeLayer(tempMarker);
+                Swal.fire({ icon: 'success', title: 'Berhasil!', text: 'Data tersimpan.', timer: 1500, showConfirmButton: false });
+            }
+        });
+    }
+
+    function resetForm() {
+        document.getElementById('editIndex').value = "-1";
+        document.getElementById('formTitle').innerHTML = '<i class="fas fa-plus-circle me-2"></i>INPUT DATA ASET';
+        document.getElementById('panelTombolForm').style.display = currentUser.perms.tambah ? 'block' : 'none';
+        
+        ['inpRegister', 'inpOpd', 'inpNamaUmum', 'inpNama', 'inpTglSer', 'inpNo', 'inpKec', 'inpLuas', 'inpTahun', 'inpHarga', 'inpKoordinat', 'inpFile'].forEach(id => document.getElementById(id).value = "");
+        document.getElementById('inpKel').innerHTML = "";
+        document.getElementById('inpStatusSer').value = "sudah";
+        renderScanViewer(null);
+        currentScanData = null;
+        toggleSertifikat();
+    }
+
+    // Fungsi edit global agar bisa diakses dari atribut onclick html
+    window.editData = function(i) {
+        if(!currentUser.perms.edit) return Swal.fire('Akses Ditolak', 'Anda tidak memiliki hak edit.', 'error');
+        
+        const d = dbAset[i];
+        document.getElementById('editIndex').value = i;
+        document.getElementById('formTitle').innerHTML = '<i class="fas fa-edit me-2 text-warning"></i>MODE EDIT DATA';
+        document.getElementById('panelTombolForm').style.display = 'block'; // Paksa tampil tombol form saat mode edit jalan
+        
+        document.getElementById('inpRegister').value = d.register || "";
+        document.getElementById('inpOpd').value = d.opd || "";
+        document.getElementById('inpNamaUmum').value = d.namaUmum || "";
+        document.getElementById('inpNama').value = d.nama || "";
+        document.getElementById('inpStatusSer').value = d.status || "sudah";
+        toggleSertifikat();
+        document.getElementById('inpTglSer').value = d.tglSer || "";
+        document.getElementById('inpNo').value = d.no || "";
+        document.getElementById('inpKec').value = d.kec || "";
+        updateKelurahan();
+        document.getElementById('inpKel').value = d.kel || "";
+        document.getElementById('inpLuas').value = d.luas || "";
+        document.getElementById('inpTahun').value = d.tahun || "";
+        document.getElementById('inpHarga').value = d.harga || "";
+        document.getElementById('inpKoordinat').value = d.koordinat || "";
+        
+        currentScanData = null; 
+        renderScanViewer(d.scan);
+        
+        if (d.lat && d.lng) {
+            map.flyTo([d.lat, d.lng], 16);
+            if (tempMarker) map.removeLayer(tempMarker);
+            tempMarker = L.marker([d.lat, d.lng]).addTo(map);
+        }
+    };
+
+    window.hapus = function(i) {
+        if(!currentUser.perms.hapus) return Swal.fire('Akses Ditolak', 'Anda tidak memiliki hak hapus.', 'error');
+        
+        Swal.fire({
+            title: 'Hapus Data Aset?', text: "Data tidak dapat dikembalikan!", icon: 'warning',
+            showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: 'Ya, Hapus!', cancelButtonText: 'Batal'
+        }).then((res) => {
+            if (res.isConfirmed) {
+                dbAset.splice(i, 1);
+                localStorage.setItem('db_sistadig_v8_aset', JSON.stringify(dbAset));
+                updateApp();
+                Swal.fire('Terhapus!', 'Data berhasil dihapus.', 'success');
+            }
+        });
+    };
+
+    // DASHBOARD & TABEL UPDATE
+    function updateSummary() {
+        const totAset = dbAset.length;
+        let totHarga = 0;
+        dbAset.forEach(d => {
+            if(d.harga) {
+                const num = parseInt(d.harga.replace(/[^0-9]/g, ""));
+                if(!isNaN(num)) totHarga += num;
+            }
+        });
+        document.getElementById('totAset').innerHTML = `${totAset} <span class="fs-6 text-muted">Bidang</span>`;
+        document.getElementById('totNilai').innerText = `Rp ${totHarga.toLocaleString('id-ID')}`;
+    }
+
+    function updateDropdownOPD() {
+        const filterOpd = document.getElementById('filterOpd');
+        const selectedVal = filterOpd.value;
+        filterOpd.innerHTML = '<option value="">Semua OPD</option>';
+        const opdList = [...new Set(dbAset.map(item => item.opd).filter(val => val && val.trim() !== ''))].sort();
+        opdList.forEach(opd => filterOpd.innerHTML += `<option value="${opd}">${opd}</option>`);
+        filterOpd.value = selectedVal;
+    }
+
+    function updateApp() {
+        updateSummary();
+        updateDropdownOPD();
+        
+        const tbody = document.getElementById('isiTabel');
+        if (!tbody) return;
+        
+        tbody.innerHTML = '';
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+
+        // Atur visibilitas kolom aksi berdasarkan perms
+        const showAksi = currentUser.perms.edit || currentUser.perms.hapus;
+        const thAksi = document.querySelector('.col-aksi');
+        if(thAksi) thAksi.style.display = showAksi ? 'table-cell' : 'none';
+
+        dbAset.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            tr.className = "text-center";
+            tr.style.cursor = "pointer";
+            tr.onclick = () => fokusAset(index);
+            
+            let htmlAksi = '';
+            if(showAksi) {
+                htmlAksi = `<td onclick="event.stopPropagation();">
+                    <div class="d-flex gap-1 justify-content-center">
+                        ${currentUser.perms.edit ? `<button class="btn btn-warning btn-sm px-2 py-1 text-dark" title="Edit" onclick="editData(${index})"><i class="fas fa-edit"></i></button>` : ''}
+                        ${currentUser.perms.hapus ? `<button class="btn btn-danger btn-sm px-2 py-1" title="Hapus" onclick="hapus(${index})"><i class="fas fa-trash"></i></button>` : ''}
+                    </div>
+                </td>`;
+            }
+
+            tr.innerHTML = `
+                <td>${index + 1}</td>
+                <td class="fw-bold text-success">${item.register || '-'}</td>
+                <td class="text-start">${item.opd || '-'}</td>
+                <td class="text-start">${item.namaUmum || '-'}</td>
+                <td class="text-start fw-bold">${item.nama || '-'}</td>
+                <td><span class="badge badge-sertif ${item.status==='sudah'?'bg-success':'bg-danger'}">${item.status === 'sudah' ? 'Bersertifikat' : 'Belum'}</span></td>
+                <td>${item.tglSer ? item.tglSer.split('-').reverse().join('-') : '-'}</td>
+                <td>${item.no || '-'}</td>
+                <td>${item.kec || '-'}</td>
+                <td>${item.kel || '-'}</td>
+                <td>${item.luas}</td>
+                <td>${item.tahun || '-'}</td>
+                <td class="text-end">Rp ${item.harga || '0'}</td>
+                <td style="font-size:9px;">${item.koordinat || '-'}</td>
+                ${htmlAksi}
+            `;
+            tbody.appendChild(tr);
+
+            if (item.lat && item.lng) {
+                const icon = L.divIcon({ html: `<i class="fas fa-map-marker-alt fa-2x text-success" style="filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.5));"></i>`, className: 'custom-div-icon', iconSize: [24, 24], iconAnchor: [12, 24] });
+                const m = L.marker([item.lat, item.lng], {icon: icon})
+                    .addTo(map)
+                    .bindPopup(`
+                        <div class="custom-popup">
+                            <h6 class="fw-bold mb-1 text-success">${item.nama}</h6>
+                            <p class="mb-0 small fw-bold">Reg: ${item.register || '-'}</p>
+                            <p class="mb-0 small">${item.opd}</p>
+                        </div>
+                    `);
+                markers.push(m);
+            }
+        });
+        
+        applyFilters(); 
+    }
+
+    function applyFilters() {
+        const valOpd = document.getElementById('filterOpd').value.toLowerCase();
+        const valTahun = document.getElementById('filterTahun').value;
+        const valSampai = document.getElementById('filterSampaiTahun').value;
+        const valCari = document.getElementById('cariData').value.toLowerCase();
+
+        const rows = document.querySelectorAll('#isiTabel tr');
+
+        rows.forEach((tr, index) => {
+            const d = dbAset[index];
+            let isVisible = true;
+            if (valOpd && (!d.opd || d.opd.toLowerCase() !== valOpd)) isVisible = false;
+            if (valTahun && d.tahun != valTahun) isVisible = false;
+            if (valSampai && (!d.tahun || parseInt(d.tahun) > parseInt(valSampai))) isVisible = false;
+            if (valCari && !tr.innerText.toLowerCase().includes(valCari)) isVisible = false;
+            tr.style.display = isVisible ? '' : 'none';
+        });
+    }
+
+    function fokusAset(i) {
+        const d = dbAset[i];
+        if (d.lat && d.lng) {
+            map.flyTo([d.lat, d.lng], 17);
+            if (markers[i]) markers[i].openPopup();
+        }
+        
+        document.querySelectorAll('#isiTabel tr').forEach(r => r.classList.remove('selected'));
+        const rows = document.querySelectorAll('#isiTabel tr');
+        if(rows[i]) rows[i].classList.add('selected');
+        
+        renderScanViewer(d.scan);
+        document.getElementById('infoTerpilih').innerHTML = `
+            <table class="table table-sm table-borderless mb-0" style="font-size: 11px;">
+                <tr><td width="70"><strong>Register</strong></td><td>: <span class="badge bg-success">${d.register || '-'}</span></td></tr>
+                <tr><td><strong>OPD</strong></td><td>: ${d.opd || '-'}</td></tr>
+                <tr><td><strong>Kec/Kel</strong></td><td>: ${d.kec || '-'}/${d.kel || '-'}</td></tr>
+                <tr><td><strong>Thn/Luas</strong></td><td>: ${d.tahun || '-'} / ${d.luas} m²</td></tr>
+                <tr><td><strong>Status</strong></td><td>: ${d.status === 'sudah' ? 'Bersertifikat' : 'Belum'}</td></tr>
+                <tr><td><strong>Sertifikat</strong></td><td>: ${d.no || '-'}</td></tr>
+                <tr><td><strong>Harga</strong></td><td>: Rp ${d.harga || '0'}</td></tr>
+            </table>
+        `;
+    }
+
+    // EXCEL EXPORT/IMPORT
+    function downloadTemplate() {
+        const headers = [["No. Register", "OPD Pengguna", "Nama Umum Barang", "Nama Barang Spesifik", "Status Sertifikat", "Tgl Sertifikat", "No. Sertifikat", "Kecamatan", "Kelurahan", "Luas (m2)", "Tahun Perolehan", "Harga Perolehan (Rp)", "Titik Koordinat"]];
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(headers);
+        XLSX.utils.book_append_sheet(wb, ws, "Template");
+        XLSX.writeFile(wb, "Template_SISTADIG_Cilegon.xlsx");
+    }
+
+    function handleImport(input) {
+        if(!currentUser.perms.tambah) return Swal.fire('Ditolak', 'Tidak ada akses import.', 'error');
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(sheet);
+            
+            json.forEach(row => {
+                const k = parseKoordinat(String(row["Titik Koordinat"] || ""));
+                dbAset.push({
+                    register: row["No. Register"] || "",
+                    opd: row["OPD Pengguna"] || "",
+                    namaUmum: row["Nama Umum Barang"] || "",
+                    nama: row["Nama Barang Spesifik"] || "",
+                    status: String(row["Status Sertifikat"]).toLowerCase().includes("belum") ? "belum" : "sudah",
+                    tglSer: row["Tgl Sertifikat"] || "",
+                    no: row["No. Sertifikat"] || "",
+                    kec: row["Kecamatan"] || "",
+                    kel: row["Kelurahan"] || "",
+                    luas: String(row["Luas (m2)"] || "0"),
+                    tahun: row["Tahun Perolehan"] || "",
+                    harga: String(row["Harga Perolehan (Rp)"] || "0"),
+                    koordinat: row["Titik Koordinat"] || "",
+                    lat: k ? k.lat : null, lng: k ? k.lng : null, scan: null
+                });
+            });
+            localStorage.setItem('db_sistadig_v8_aset', JSON.stringify(dbAset));
+            updateApp();
+            Swal.fire('Import Selesai', `Berhasil impor ${json.length} data!`, 'success');
+            input.value = ""; 
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function exportKeExcel() {
+        if (dbAset.length === 0) return Swal.fire('Data Kosong', 'Tidak ada data untuk diekspor.', 'info');
+        const exportData = dbAset.map((d, index) => ({
+            "No": index + 1,
+            "No. Register": d.register,
+            "OPD Pengguna Barang": d.opd, 
+            "Nama Umum Barang": d.namaUmum,
+            "Nama Barang Spesifik": d.nama, 
+            "Status Sertifikat": d.status === 'sudah' ? 'Bersertifikat' : 'Belum',
+            "Tgl Sertifikat": d.tglSer,
+            "No. Sertifikat": d.no, 
+            "Kecamatan": d.kec,
+            "Kelurahan": d.kel,
+            "Luas (m2)": d.luas, 
+            "Tahun Perolehan": d.tahun,
+            "Harga Perolehan (Rp)": d.harga, 
+            "Titik Koordinat": d.koordinat
+        }));
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        XLSX.utils.book_append_sheet(wb, ws, "KIB_A");
+        XLSX.writeFile(wb, "Laporan_Aset_Cilegon.xlsx");
+    }
+</script>
+</body>
+</html>
